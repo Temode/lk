@@ -44,43 +44,34 @@ WorkHub est une plateforme SaaS complète qui combine gestion de projets, CRM, e
 - **Frontend:** Next.js 14 (App Router), React, TypeScript
 - **Styling:** Tailwind CSS
 - **Backend:** Next.js API Routes
-- **Base de données:** SQLite avec Prisma ORM (prêt à l'emploi, pas de configuration !)
+- **Base de données:** PostgreSQL (Supabase) avec Prisma ORM
 - **Authentification:** NextAuth.js
 - **Paiements:** Stripe
 - **IA:** OpenAI API
 - **Email:** Resend
 - **Temps réel:** Socket.io
 
-## 🚀 Installation Rapide
+## 🚀 Installation
 
 ### Prérequis
 
 - Node.js 18+
 - npm ou yarn
-- **Aucune base de données à installer !** (SQLite inclus)
+- Un compte Supabase (gratuit) - [Créer un compte](https://supabase.com)
 
-### 🎯 Installation en 1 commande (Recommandé)
+### 📋 Étape 1: Configurer Supabase
 
-**Windows (Git Bash ou PowerShell) :**
-```bash
-./setup.bat
-```
+**IMPORTANT** : Avant d'installer, vous devez configurer Supabase !
 
-**Linux/Mac :**
-```bash
-chmod +x setup.sh
-./setup.sh
-```
+👉 **[Suivez le guide de configuration Supabase](./SUPABASE_SETUP.md)** 👈
 
-Le script va automatiquement :
-1. Nettoyer les anciens fichiers
-2. Installer toutes les dépendances
-3. Configurer Prisma
-4. Créer la base de données SQLite
+Le guide vous expliquera comment :
+1. Créer un compte Supabase gratuit
+2. Créer un nouveau projet
+3. Récupérer vos identifiants de connexion
+4. Configurer votre fichier `.env`
 
-### 📝 Installation manuelle
-
-Si vous préférez installer manuellement :
+### 📦 Étape 2: Installer le projet
 
 1. **Cloner le repository**
 ```bash
@@ -93,30 +84,39 @@ cd lk
 npm install --legacy-peer-deps
 ```
 
-3. **Générer le client Prisma**
+3. **Configurer les variables d'environnement**
+
+Copiez `.env.example` vers `.env` et remplissez vos identifiants Supabase :
+
+```env
+DATABASE_URL="postgresql://postgres.[votre-ref]:[votre-password]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+DIRECT_URL="postgresql://postgres.[votre-ref]:[votre-password]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+```
+
+4. **Générer le client Prisma**
 ```bash
 npx prisma generate
 ```
 
-4. **Créer la base de données**
+5. **Créer les tables dans Supabase**
 ```bash
 npx prisma db push
 ```
 
-5. **Lancer le serveur de développement**
+6. **Lancer le serveur de développement**
 ```bash
 npm run dev
 ```
 
 L'application sera accessible sur [http://localhost:3000](http://localhost:3000)
 
-## 🔐 Configuration (Optionnel)
+## 🔐 Configuration additionnelle (Optionnel)
 
-Le fichier `.env` est déjà configuré avec SQLite. Vous pouvez ajouter vos clés API si vous voulez utiliser :
+Vous pouvez ajouter vos clés API pour utiliser toutes les fonctionnalités :
 
-- **Stripe** : Pour les paiements (optionnel)
-- **OpenAI** : Pour le générateur de contenu IA (optionnel)
-- **Resend** : Pour l'envoi d'emails (optionnel)
+- **Stripe** : Pour les paiements
+- **OpenAI** : Pour le générateur de contenu IA
+- **Resend** : Pour l'envoi d'emails
 
 ## 📁 Structure du Projet
 
