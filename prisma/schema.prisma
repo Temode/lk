@@ -1,0 +1,408 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  workspaces    WorkspaceMember[]
+  ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
+  tasks         Task[]
+  comments      Comment[]
+  documents     Document[]
+  contacts      Contact[]
+  timeEntries   TimeEntry[]
+  campaigns     Campaign[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Workspace & Team Management
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  ownerId     String
+  plan        Plan     @default(FREE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members     WorkspaceMember[]
+  projects    Project[]
+  boards      Board[]
+  documents   Document[]
+  templates   Template[]
+  contacts    Contact[]
+  campaigns   Campaign[]
+  automations Automation[]
+
+  @@map("workspaces")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        MemberRole @default(MEMBER)
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+// Project Management
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  workspaceId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  boards      Board[]
+
+  @@map("projects")
+}
+
+// Kanban Board
+model Board {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  projectId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  columns     Column[]
+
+  @@map("boards")
+}
+
+model Column {
+  id        String   @id @default(cuid())
+  name      String
+  order     Int
+  boardId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@map("columns")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  columnId    String?
+  projectId   String?
+  assigneeId  String?
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  column      Column?    @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?      @relation(fields: [assigneeId], references: [id])
+  comments    Comment[]
+  timeEntries TimeEntry[]
+
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+// Time Tracking
+model TimeEntry {
+  id          String    @id @default(cuid())
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?      // in minutes
+  taskId      String?
+  userId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("time_entries")
+}
+
+// Collaborative Documents
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   @db.Text
+  workspaceId String
+  authorId    String
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// Templates
+model Template {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  type        TemplateType
+  content     String       @db.Text
+  thumbnail   String?
+  workspaceId String?
+  isPublic    Boolean      @default(true)
+  category    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace   Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("templates")
+}
+
+enum TemplateType {
+  DOCUMENT
+  EMAIL
+  SOCIAL_POST
+  PRESENTATION
+  REPORT
+}
+
+// CRM & Contacts
+model Contact {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  company     String?
+  position    String?
+  notes       String?
+  status      ContactStatus @default(LEAD)
+  workspaceId String
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns   CampaignContact[]
+
+  @@map("contacts")
+}
+
+enum ContactStatus {
+  LEAD
+  PROSPECT
+  CUSTOMER
+  LOST
+}
+
+// Email Marketing
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  subject     String
+  content     String         @db.Text
+  status      CampaignStatus @default(DRAFT)
+  workspaceId String
+  userId      String
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts    CampaignContact[]
+
+  @@map("campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+}
+
+model CampaignContact {
+  id         String    @id @default(cuid())
+  campaignId String
+  contactId  String
+  status     EmailStatus @default(PENDING)
+  sentAt     DateTime?
+  openedAt   DateTime?
+  clickedAt  DateTime?
+
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact    Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, contactId])
+  @@map("campaign_contacts")
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+}
+
+// Automation
+model Automation {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  trigger     String
+  actions     String          @db.Text // JSON
+  isActive    Boolean         @default(true)
+  workspaceId String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("automations")
+}
+
+// Subscription & Billing
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  stripeCustomerId   String?  @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId      String?
+  stripeCurrentPeriodEnd DateTime?
+  plan               Plan     @default(FREE)
+  status             SubscriptionStatus @default(INACTIVE)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELED
+  PAST_DUE
+}
