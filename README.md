@@ -44,11 +44,11 @@ WorkHub est une plateforme SaaS complète qui combine gestion de projets, CRM, e
 - **Frontend:** Next.js 14 (App Router), React, TypeScript
 - **Styling:** Tailwind CSS
 - **Backend:** Next.js API Routes
-- **Base de données:** PostgreSQL avec Prisma ORM
+- **Base de données:** PostgreSQL (Supabase) avec Prisma ORM
 - **Authentification:** NextAuth.js
 - **Paiements:** Stripe
 - **IA:** OpenAI API
-- **Email:** Resend / Nodemailer
+- **Email:** Resend
 - **Temps réel:** Socket.io
 
 ## 🚀 Installation
@@ -56,48 +56,67 @@ WorkHub est une plateforme SaaS complète qui combine gestion de projets, CRM, e
 ### Prérequis
 
 - Node.js 18+
-- PostgreSQL
 - npm ou yarn
+- Un compte Supabase (gratuit) - [Créer un compte](https://supabase.com)
 
-### Étapes d'installation
+### 📋 Étape 1: Configurer Supabase
+
+**IMPORTANT** : Avant d'installer, vous devez configurer Supabase !
+
+👉 **[Suivez le guide de configuration Supabase](./SUPABASE_SETUP.md)** 👈
+
+Le guide vous expliquera comment :
+1. Créer un compte Supabase gratuit
+2. Créer un nouveau projet
+3. Récupérer vos identifiants de connexion
+4. Configurer votre fichier `.env`
+
+### 📦 Étape 2: Installer le projet
 
 1. **Cloner le repository**
 ```bash
-git clone https://github.com/votre-username/workhub.git
-cd workhub
+git clone https://github.com/Temode/lk.git
+cd lk
 ```
 
 2. **Installer les dépendances**
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
 3. **Configurer les variables d'environnement**
-```bash
-cp .env.example .env
-```
 
-Modifiez le fichier `.env` avec vos propres valeurs :
+Copiez `.env.example` vers `.env` et remplissez vos identifiants Supabase :
+
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/workhub"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key"
-STRIPE_SECRET_KEY="sk_test_..."
-OPENAI_API_KEY="sk-..."
+DATABASE_URL="postgresql://postgres.[votre-ref]:[votre-password]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+DIRECT_URL="postgresql://postgres.[votre-ref]:[votre-password]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 ```
 
-4. **Configurer la base de données**
+4. **Générer le client Prisma**
 ```bash
 npx prisma generate
+```
+
+5. **Créer les tables dans Supabase**
+```bash
 npx prisma db push
 ```
 
-5. **Lancer le serveur de développement**
+6. **Lancer le serveur de développement**
 ```bash
 npm run dev
 ```
 
 L'application sera accessible sur [http://localhost:3000](http://localhost:3000)
+
+## 🔐 Configuration additionnelle (Optionnel)
+
+Vous pouvez ajouter vos clés API pour utiliser toutes les fonctionnalités :
+
+- **Stripe** : Pour les paiements
+- **OpenAI** : Pour le générateur de contenu IA
+- **Resend** : Pour l'envoi d'emails
 
 ## 📁 Structure du Projet
 
