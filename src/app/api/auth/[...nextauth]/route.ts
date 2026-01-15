@@ -12,7 +12,10 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        console.log('🔐 [AUTH] Tentative d\'authentification pour:', credentials?.email)
+
         if (!credentials?.email || !credentials?.password) {
+          console.error('❌ [AUTH] Email ou mot de passe manquant')
           throw new Error("Email et mot de passe requis")
         }
 
@@ -21,8 +24,11 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user || !user.password) {
+          console.error('❌ [AUTH] Utilisateur non trouvé ou sans mot de passe')
           throw new Error("Identifiants invalides")
         }
+
+        console.log('👤 [AUTH] Utilisateur trouvé:', user.email)
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
@@ -30,8 +36,11 @@ export const authOptions: NextAuthOptions = {
         )
 
         if (!isPasswordValid) {
+          console.error('❌ [AUTH] Mot de passe invalide')
           throw new Error("Identifiants invalides")
         }
+
+        console.log('✅ [AUTH] Authentification réussie pour:', user.email)
 
         return {
           id: user.id,

@@ -18,6 +18,8 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
+    console.log('🔐 Tentative de connexion avec:', email)
+
     try {
       const result = await signIn('credentials', {
         email,
@@ -25,15 +27,24 @@ export default function LoginPage() {
         redirect: false,
       })
 
+      console.log('📊 Résultat signIn:', result)
+
       if (result?.error) {
+        console.error('❌ Erreur de connexion:', result.error)
         setError('Email ou mot de passe incorrect')
         setLoading(false)
         return
       }
 
-      router.push('/dashboard')
-      router.refresh()
+      if (result?.ok) {
+        console.log('✅ Connexion réussie ! Redirection vers /dashboard...')
+        // Attendre un peu pour que la session soit créée
+        await new Promise(resolve => setTimeout(resolve, 500))
+        router.push('/dashboard')
+        router.refresh()
+      }
     } catch (error) {
+      console.error('❌ Exception lors de la connexion:', error)
       setError('Une erreur est survenue')
       setLoading(false)
     }
