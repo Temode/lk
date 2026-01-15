@@ -22,7 +22,7 @@ const navigation = [
   { name: 'Kanban', href: '/dashboard/kanban', icon: Kanban },
   { name: 'Documents', href: '/dashboard/documents', icon: FileText },
   { name: 'CRM', href: '/dashboard/crm', icon: Users },
-  { name: 'Email Marketing', href: '/dashboard/email', icon: Mail },
+  { name: 'Email Marketing', href: '/dashboard/email-marketing', icon: Mail },
   { name: 'Suivi du temps', href: '/dashboard/time', icon: Clock },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Automatisation', href: '/dashboard/automation', icon: Zap },

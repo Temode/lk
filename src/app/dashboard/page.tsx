@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { BarChart3, Users, Clock, Mail, TrendingUp, CheckCircle } from 'lucide-react'
 
 export default async function DashboardPage() {
