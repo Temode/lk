@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import EmailEditor, { EditorRef, EmailEditorProps } from 'react-email-editor'
 
 interface EmailEditorComponentProps {
@@ -10,13 +10,54 @@ interface EmailEditorComponentProps {
   minHeight?: string
 }
 
-export default function EmailEditorComponent({
-  onReady,
-  onLoad,
-  initialDesign,
-  minHeight = '650px',
-}: EmailEditorComponentProps) {
+export interface EmailEditorHandle {
+  exportHtml: () => Promise<{ html: string; design: any }>
+  saveDesign: () => Promise<any>
+  loadDesign: (design: any) => void
+  editor: EditorRef['editor'] | undefined
+}
+
+const EmailEditorComponent = forwardRef<EmailEditorHandle, EmailEditorComponentProps>(
+  ({ onReady, onLoad, initialDesign, minHeight = '650px' }, ref) => {
   const emailEditorRef = useRef<EditorRef>(null)
+
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    exportHtml: () => {
+      return new Promise((resolve, reject) => {
+        const editor = emailEditorRef.current?.editor
+        if (!editor) {
+          reject(new Error('Editor not ready'))
+          return
+        }
+        editor.exportHtml((data) => {
+          const { design, html } = data
+          resolve({ html, design })
+        })
+      })
+    },
+    saveDesign: () => {
+      return new Promise((resolve, reject) => {
+        const editor = emailEditorRef.current?.editor
+        if (!editor) {
+          reject(new Error('Editor not ready'))
+          return
+        }
+        editor.saveDesign((design) => {
+          resolve(design)
+        })
+      })
+    },
+    loadDesign: (design: any) => {
+      const editor = emailEditorRef.current?.editor
+      if (editor) {
+        editor.loadDesign(design)
+      }
+    },
+    get editor() {
+      return emailEditorRef.current?.editor
+    }
+  }))
 
   useEffect(() => {
     // Load design when editor is ready
@@ -109,52 +150,8 @@ export default function EmailEditorComponent({
       />
     </div>
   )
-}
+})
 
-// Export helper function to get editor reference
-export const useEmailEditor = () => {
-  const emailEditorRef = useRef<EditorRef>(null)
+EmailEditorComponent.displayName = 'EmailEditorComponent'
 
-  const exportHtml = (): Promise<{ html: string; design: any }> => {
-    return new Promise((resolve, reject) => {
-      const editor = emailEditorRef.current?.editor
-      if (!editor) {
-        reject(new Error('Editor not ready'))
-        return
-      }
-
-      editor.exportHtml((data) => {
-        const { design, html } = data
-        resolve({ html, design })
-      })
-    })
-  }
-
-  const loadDesign = (design: any) => {
-    const editor = emailEditorRef.current?.editor
-    if (editor) {
-      editor.loadDesign(design)
-    }
-  }
-
-  const saveDesign = (): Promise<any> => {
-    return new Promise((resolve, reject) => {
-      const editor = emailEditorRef.current?.editor
-      if (!editor) {
-        reject(new Error('Editor not ready'))
-        return
-      }
-
-      editor.saveDesign((design) => {
-        resolve(design)
-      })
-    })
-  }
-
-  return {
-    emailEditorRef,
-    exportHtml,
-    loadDesign,
-    saveDesign,
-  }
-}
+export default EmailEditorComponent

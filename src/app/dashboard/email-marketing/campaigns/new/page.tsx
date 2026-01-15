@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { EditorRef } from 'react-email-editor'
 import {
   Save,
   Send,
@@ -13,6 +12,7 @@ import {
   FileText,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { EmailEditorHandle } from '@/components/email-marketing/EmailEditor'
 
 // Dynamic import to avoid SSR issues with EmailEditor
 const EmailEditor = dynamic(() => import('@/components/email-marketing/EmailEditor'), {
@@ -29,7 +29,7 @@ const EmailEditor = dynamic(() => import('@/components/email-marketing/EmailEdit
 
 export default function NewCampaignPage() {
   const router = useRouter()
-  const emailEditorRef = useRef<EditorRef>(null)
+  const emailEditorRef = useRef<EmailEditorHandle>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
@@ -59,33 +59,31 @@ export default function NewCampaignPage() {
   const handleSaveDraft = async () => {
     setIsSaving(true)
     try {
-      const editor = emailEditorRef.current?.editor
-      if (!editor) {
+      if (!emailEditorRef.current) {
         throw new Error('Editor not ready')
       }
 
       // Export HTML and Design JSON
-      editor.exportHtml((data) => {
-        const { design, html } = data
-        console.log('📧 Exported HTML:', html)
-        console.log('🎨 Exported Design:', design)
+      const { html, design } = await emailEditorRef.current.exportHtml()
 
-        // TODO: Save to database via API
-        const campaignToSave = {
-          ...campaignData,
-          htmlContent: html,
-          jsonContent: JSON.stringify(design),
-          status: 'DRAFT',
-        }
+      console.log('📧 Exported HTML:', html)
+      console.log('🎨 Exported Design:', design)
 
-        console.log('💾 Saving campaign:', campaignToSave)
+      // TODO: Save to database via API
+      const campaignToSave = {
+        ...campaignData,
+        htmlContent: html,
+        jsonContent: JSON.stringify(design),
+        status: 'DRAFT',
+      }
 
-        // Simulate save
-        setTimeout(() => {
-          setIsSaving(false)
-          alert('✅ Brouillon sauvegardé avec succès !')
-        }, 1000)
-      })
+      console.log('💾 Saving campaign:', campaignToSave)
+
+      // Simulate save
+      setTimeout(() => {
+        setIsSaving(false)
+        alert('✅ Brouillon sauvegardé avec succès !')
+      }, 1000)
     } catch (error) {
       console.error('❌ Error saving:', error)
       setIsSaving(false)
@@ -93,18 +91,24 @@ export default function NewCampaignPage() {
     }
   }
 
-  const handlePreview = () => {
-    const editor = emailEditorRef.current?.editor
-    if (editor) {
-      editor.exportHtml((data) => {
-        const { html } = data
-        // Open preview in new window
-        const previewWindow = window.open('', '_blank')
-        if (previewWindow) {
-          previewWindow.document.write(html)
-          previewWindow.document.close()
-        }
-      })
+  const handlePreview = async () => {
+    try {
+      if (!emailEditorRef.current) {
+        alert('❌ Éditeur pas encore prêt')
+        return
+      }
+
+      const { html } = await emailEditorRef.current.exportHtml()
+
+      // Open preview in new window
+      const previewWindow = window.open('', '_blank')
+      if (previewWindow) {
+        previewWindow.document.write(html)
+        previewWindow.document.close()
+      }
+    } catch (error) {
+      console.error('❌ Error previewing:', error)
+      alert('❌ Erreur lors de la prévisualisation')
     }
   }
 

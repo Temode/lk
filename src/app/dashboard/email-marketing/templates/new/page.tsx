@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { EditorRef } from 'react-email-editor'
 import {
   Save,
   ChevronLeft,
@@ -10,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { EmailEditorHandle } from '@/components/email-marketing/EmailEditor'
 
 // Dynamic import to avoid SSR issues
 const EmailEditor = dynamic(() => import('@/components/email-marketing/EmailEditor'), {
@@ -26,7 +26,7 @@ const EmailEditor = dynamic(() => import('@/components/email-marketing/EmailEdit
 
 export default function NewTemplatePage() {
   const router = useRouter()
-  const emailEditorRef = useRef<EditorRef>(null)
+  const emailEditorRef = useRef<EmailEditorHandle>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
 
@@ -61,33 +61,31 @@ export default function NewTemplatePage() {
 
     setIsSaving(true)
     try {
-      const editor = emailEditorRef.current?.editor
-      if (!editor) {
+      if (!emailEditorRef.current) {
         throw new Error('Editor not ready')
       }
 
       // Export HTML and Design JSON
-      editor.exportHtml((data) => {
-        const { design, html } = data
-        console.log('📧 Exported HTML:', html)
-        console.log('🎨 Exported Design:', design)
+      const { html, design } = await emailEditorRef.current.exportHtml()
 
-        // TODO: Save to database via API
-        const templateToSave = {
-          ...templateData,
-          htmlContent: html,
-          jsonContent: JSON.stringify(design),
-        }
+      console.log('📧 Exported HTML:', html)
+      console.log('🎨 Exported Design:', design)
 
-        console.log('💾 Saving template:', templateToSave)
+      // TODO: Save to database via API
+      const templateToSave = {
+        ...templateData,
+        htmlContent: html,
+        jsonContent: JSON.stringify(design),
+      }
 
-        // Simulate save
-        setTimeout(() => {
-          setIsSaving(false)
-          alert('✅ Template sauvegardé avec succès !')
-          router.push('/dashboard/email-marketing/templates')
-        }, 1000)
-      })
+      console.log('💾 Saving template:', templateToSave)
+
+      // Simulate save
+      setTimeout(() => {
+        setIsSaving(false)
+        alert('✅ Template sauvegardé avec succès !')
+        router.push('/dashboard/email-marketing/templates')
+      }, 1000)
     } catch (error) {
       console.error('❌ Error saving:', error)
       setIsSaving(false)
@@ -95,18 +93,24 @@ export default function NewTemplatePage() {
     }
   }
 
-  const handlePreview = () => {
-    const editor = emailEditorRef.current?.editor
-    if (editor) {
-      editor.exportHtml((data) => {
-        const { html } = data
-        // Open preview in new window
-        const previewWindow = window.open('', '_blank')
-        if (previewWindow) {
-          previewWindow.document.write(html)
-          previewWindow.document.close()
-        }
-      })
+  const handlePreview = async () => {
+    try {
+      if (!emailEditorRef.current) {
+        alert('❌ Éditeur pas encore prêt')
+        return
+      }
+
+      const { html } = await emailEditorRef.current.exportHtml()
+
+      // Open preview in new window
+      const previewWindow = window.open('', '_blank')
+      if (previewWindow) {
+        previewWindow.document.write(html)
+        previewWindow.document.close()
+      }
+    } catch (error) {
+      console.error('❌ Error previewing:', error)
+      alert('❌ Erreur lors de la prévisualisation')
     }
   }
 
