@@ -94,6 +94,11 @@ model Workspace {
   campaigns   Campaign[]
   automations Automation[]
 
+  // Email Marketing
+  emailLists     EmailList[]
+  emailTemplates EmailTemplate[]
+  emailWorkflows EmailWorkflow[]
+
   @@map("workspaces")
 }
 
@@ -294,7 +299,14 @@ model Contact {
   company     String?
   position    String?
   notes       String?
+  tags        String?  // Comma-separated or JSON
+  customFields String? @db.Text // JSON for custom fields
   status      ContactStatus @default(LEAD)
+
+  // Email preferences
+  isSubscribed Boolean  @default(true)
+  unsubscribedAt DateTime?
+
   workspaceId String
   userId      String
   createdAt   DateTime @default(now())
@@ -302,7 +314,12 @@ model Contact {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaigns   CampaignContact[]
+
+  // Email Marketing Relations
+  emailLists  EmailListContact[]
+  emailSends  EmailSend[]
+  emailEvents EmailEvent[]
+  workflows   EmailWorkflowSubscriber[]
 
   @@map("contacts")
 }
@@ -314,25 +331,127 @@ enum ContactStatus {
   LOST
 }
 
-// Email Marketing
+// Email Marketing - Advanced System
+
+// Email Lists & Segmentation
+model EmailList {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  type        ListType  @default(STATIC)
+  workspaceId String
+  segmentRules String?  @db.Text // JSON rules for dynamic segments
+  contactCount Int      @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts    EmailListContact[]
+  campaigns   Campaign[]
+
+  @@map("email_lists")
+}
+
+enum ListType {
+  STATIC    // Manual list
+  DYNAMIC   // Auto-updated based on rules
+  IMPORTED  // Imported from file
+}
+
+model EmailListContact {
+  id          String    @id @default(cuid())
+  listId      String
+  contactId   String
+  createdAt   DateTime  @default(now())
+
+  list        EmailList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, contactId])
+  @@map("email_list_contacts")
+}
+
+// Email Templates (Specific for Email Marketing)
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  subject     String?
+  htmlContent String   @db.Text
+  jsonContent String?  @db.Text // Unlayer/GrapeJS JSON format
+  thumbnail   String?
+  category    String?
+  isPublic    Boolean  @default(false)
+  workspaceId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaigns   Campaign[]
+
+  @@map("email_templates")
+}
+
+// Email Campaigns (Enhanced)
 model Campaign {
   id          String         @id @default(cuid())
   name        String
   subject     String
-  content     String         @db.Text
+  preheader   String?        // Preview text
+  fromName    String
+  fromEmail   String
+  replyTo     String?
+
+  // Content
+  htmlContent String         @db.Text
+  jsonContent String?        @db.Text // Editor JSON format
+  templateId  String?
+
+  // Settings
+  type        CampaignType   @default(REGULAR)
   status      CampaignStatus @default(DRAFT)
+
+  // Targeting
+  listId      String?
   workspaceId String
   userId      String
+
+  // A/B Testing
+  abTestId    String?
+  isAbTest    Boolean        @default(false)
+
+  // Scheduling
   scheduledAt DateTime?
   sentAt      DateTime?
+
+  // Analytics
+  totalSent      Int         @default(0)
+  totalOpened    Int         @default(0)
+  totalClicked   Int         @default(0)
+  totalBounced   Int         @default(0)
+  totalUnsubscribed Int      @default(0)
+
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contacts    CampaignContact[]
+  template    EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  list        EmailList?     @relation(fields: [listId], references: [id], onDelete: SetNull)
+  abTest      EmailABTest?   @relation(fields: [abTestId], references: [id], onDelete: SetNull)
+
+  sends       EmailSend[]
+  events      EmailEvent[]
 
   @@map("campaigns")
+}
+
+enum CampaignType {
+  REGULAR       // One-time campaign
+  AUTOMATED     // From automation workflow
+  AB_TEST       // A/B test campaign
+  RSS           // RSS to email
+  TRANSACTIONAL // Transactional emails
 }
 
 enum CampaignStatus {
@@ -341,31 +460,289 @@ enum CampaignStatus {
   SENDING
   SENT
   PAUSED
+  CANCELLED
 }
 
-model CampaignContact {
-  id         String    @id @default(cuid())
-  campaignId String
-  contactId  String
-  status     EmailStatus @default(PENDING)
-  sentAt     DateTime?
-  openedAt   DateTime?
-  clickedAt  DateTime?
+// Email Send Records (Individual sends)
+model EmailSend {
+  id          String      @id @default(cuid())
+  campaignId  String
+  contactId   String
 
-  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contact    Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  // Email details
+  subject     String
+  fromEmail   String
+  toEmail     String
 
-  @@unique([campaignId, contactId])
-  @@map("campaign_contacts")
+  // Status
+  status      EmailStatus @default(PENDING)
+
+  // Tracking
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  bouncedAt   DateTime?
+
+  // Counts
+  openCount   Int         @default(0)
+  clickCount  Int         @default(0)
+
+  // Provider info
+  messageId   String?     @unique
+  providerResponse String? @db.Text
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  campaign    Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact     Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  events      EmailEvent[]
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+  @@map("email_sends")
 }
 
 enum EmailStatus {
   PENDING
   SENT
+  DELIVERED
   OPENED
   CLICKED
   BOUNCED
   FAILED
+  UNSUBSCRIBED
+}
+
+// Email Events (Opens, Clicks, etc.)
+model EmailEvent {
+  id          String        @id @default(cuid())
+  type        EmailEventType
+  campaignId  String
+  sendId      String?
+  contactId   String
+
+  // Event data
+  userAgent   String?
+  ipAddress   String?
+  location    String?
+  linkUrl     String?       // For click events
+
+  timestamp   DateTime      @default(now())
+
+  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  send        EmailSend?    @relation(fields: [sendId], references: [id], onDelete: Cascade)
+  contact     Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([sendId])
+  @@index([type])
+  @@index([timestamp])
+  @@map("email_events")
+}
+
+enum EmailEventType {
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  SOFT_BOUNCE
+  HARD_BOUNCE
+  SPAM_COMPLAINT
+  UNSUBSCRIBED
+}
+
+// A/B Testing
+model EmailABTest {
+  id          String     @id @default(cuid())
+  name        String
+  workspaceId String
+
+  // Test configuration
+  testType    ABTestType @default(SUBJECT)
+  winnerCriteria ABWinnerCriteria @default(OPEN_RATE)
+
+  // Sample sizes
+  sampleSize  Int        @default(50) // Percentage
+
+  // Timing
+  testDuration Int?      // Hours to wait before declaring winner
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Results
+  winnerVariant String? // A or B
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  campaigns   Campaign[]
+
+  @@map("email_ab_tests")
+}
+
+enum ABTestType {
+  SUBJECT
+  FROM_NAME
+  CONTENT
+  SEND_TIME
+}
+
+enum ABWinnerCriteria {
+  OPEN_RATE
+  CLICK_RATE
+  CONVERSION_RATE
+}
+
+// Landing Pages
+model LandingPage {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  title       String
+  description String?
+
+  // Content
+  htmlContent String   @db.Text
+  jsonContent String?  @db.Text
+
+  // SEO
+  metaTitle   String?
+  metaDescription String?
+  ogImage     String?
+
+  // Settings
+  isPublished Boolean  @default(false)
+  workspaceId String
+
+  // Analytics
+  views       Int      @default(0)
+  conversions Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("landing_pages")
+}
+
+// Email Automation Workflows
+model EmailWorkflow {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+
+  // Trigger configuration
+  triggerType WorkflowTrigger
+  triggerConfig String?      @db.Text // JSON config
+
+  // Status
+  isActive    Boolean        @default(false)
+  workspaceId String
+
+  // Stats
+  totalEntered Int           @default(0)
+  totalCompleted Int         @default(0)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps       EmailWorkflowStep[]
+  subscribers EmailWorkflowSubscriber[]
+
+  @@map("email_workflows")
+}
+
+enum WorkflowTrigger {
+  CONTACT_ADDED       // When contact is added to list
+  CONTACT_TAGGED      // When contact gets a tag
+  EMAIL_OPENED        // When email is opened
+  EMAIL_CLICKED       // When link is clicked
+  FORM_SUBMITTED      // When form is submitted
+  DATE_BASED          // On specific date/time
+  FIELD_CHANGED       // When contact field changes
+  WEBHOOK             // External webhook trigger
+}
+
+model EmailWorkflowStep {
+  id          String           @id @default(cuid())
+  workflowId  String
+
+  // Step configuration
+  type        WorkflowStepType
+  name        String
+  config      String           @db.Text // JSON configuration
+
+  // Position in workflow
+  order       Int
+  parentStepId String?
+
+  // Conditions
+  conditions  String?          @db.Text // JSON conditions
+
+  // Timing
+  delayAmount Int?             // Delay amount
+  delayUnit   DelayUnit?       // Delay unit
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workflow    EmailWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  parentStep  EmailWorkflowStep? @relation("StepHierarchy", fields: [parentStepId], references: [id])
+  childSteps  EmailWorkflowStep[] @relation("StepHierarchy")
+
+  @@map("email_workflow_steps")
+}
+
+enum WorkflowStepType {
+  SEND_EMAIL
+  WAIT
+  CONDITION
+  ADD_TAG
+  REMOVE_TAG
+  UPDATE_FIELD
+  NOTIFY
+  WEBHOOK
+  ADD_TO_LIST
+  REMOVE_FROM_LIST
+}
+
+enum DelayUnit {
+  MINUTES
+  HOURS
+  DAYS
+  WEEKS
+}
+
+// Workflow Subscribers (Contacts in workflows)
+model EmailWorkflowSubscriber {
+  id          String    @id @default(cuid())
+  workflowId  String
+  contactId   String
+
+  // Progress
+  currentStepId String?
+  status      WorkflowSubscriberStatus @default(ACTIVE)
+
+  // Timing
+  enteredAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  workflow    EmailWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, contactId])
+  @@map("email_workflow_subscribers")
+}
+
+enum WorkflowSubscriberStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXITED
 }
 
 // Automation
